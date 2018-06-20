@@ -5,7 +5,6 @@ import math
 import config
 import sqlite3
 import re
-import os
 
 user_plus = ('creator', 'administrator')
 my_id = config.my_id
@@ -25,7 +24,7 @@ def pin(message):
         try:
             bot.pin_chat_message(message.chat.id, message.reply_to_message.message_id, disable_notification=True)
         except AttributeError:
-            bot.send_message(message.chat.id, 'Неверный синтаксис команды: Нужно ответить командой /pin на нужное сообщение')
+            bot.send_message(message.chat.id, 'Неверный синтаксис команды: Нужно ответить командой /pin на нужное сообщение.')
 
 @bot.message_handler(commands=['sd', 'Sd'])
 def sd(message):
@@ -49,7 +48,7 @@ def warn_do(message, warn):
     name = message.reply_to_message.from_user.first_name if message.reply_to_message else warn[2]
     if test is None:
         c.execute('INSERT INTO warn (chat_id, user_id, warn_count) VALUES (?, ?, 1)', warn[:2])
-        text = 'Количество предупреждений <b>{0}</b> - 1.'.format(name)
+        text = 'Количество предупреждений <b>{0}</b> увеличено до - 1.'.format(name)
         bot.send_message(message.chat.id, parse_mode='HTML', text=text)
     else:
         c.execute('UPDATE warn SET warn_count = warn_count + 1 WHERE chat_id=? AND user_id=?', warn[:2])
@@ -58,7 +57,7 @@ def warn_do(message, warn):
         c.execute('SELECT max_warn, time_ban FROM settings WHERE chat_id=?', (message.chat.id,))
         data = c.fetchone()
         max_warn, time_ban = data[0], data[1]
-        text = 'Количество предупреждений <b>{0}</b> - {1}.'.format(name, warn_count)
+        text = 'Количество предупреждений <b>{0}</b> увеличено до - {1}.'.format(name, warn_count)
         bot.send_message(message.chat.id, parse_mode='HTML', text=text)
         if warn_count >= max_warn:
             until = math.floor(time.time()) + time_ban * 60
@@ -67,7 +66,7 @@ def warn_do(message, warn):
                                     can_send_media_messages=False, 
                                     can_send_other_messages=False,
                                     can_add_web_page_previews=False)
-            bot.send_message(message.chat.id, '<b>{0}</b> забанен на {1} мин.'.format(name, time_ban), parse_mode='HTML')
+            bot.send_message(message.chat.id, '<b>{0}</b> заблокирован на {1} мин.'.format(name, time_ban), parse_mode='HTML')
             c.execute('DELETE FROM warn WHERE chat_id=? AND user_id=?', warn[:2])
     conn.commit()
     c.close()
@@ -80,10 +79,10 @@ def warn(message):
         try:
             warn = (message.chat.id, message.reply_to_message.from_user.id)
         except AttributeError:
-            bot.send_message(message.chat.id, 'Неверный синтаксис команды: Нужно ответить командой /warn на нужное сообщение')
+            bot.send_message(message.chat.id, 'Неверный синтаксис команды: Нужно ответить командой /warn на нужное сообщение.')
         else:
             if check(message):
-                bot.send_message(message.chat.id, 'Невозможно выдать предупреждение админу')
+                bot.send_message(message.chat.id, 'Невозможно выдать предупреждение админу.')
             else:
                 warn_do(message, warn)
 
@@ -95,7 +94,7 @@ def unwarn(message):
         try:
             warn_c = (message.text.split()[1], message.chat.id, message.reply_to_message.from_user.id)
         except IndexError:
-            bot.send_message(message.chat.id, 'Неверный синтаксис команды: Нужно ответить командой /unwarn на нужное сообщение и указать количество варнов, которые Вы хотите снять')
+            bot.send_message(message.chat.id, 'Неверный синтаксис команды: Нужно ответить командой /unwarn на нужное сообщение и указать количество варнов, которые Вы хотите снять.')
         else:
             c = conn.cursor()
             c.execute('UPDATE warn SET warn_count=warn_count - ? WHERE chat_id = ? AND user_id = ?', warn_c)
@@ -117,7 +116,7 @@ def info_about_user(message):
         try:
             user_info = (message.chat.id, message.reply_to_message.from_user.id)
         except AttributeError:
-            bot.send_message(message.chat.id, 'Неверный синтаксис команды: Нужно ответить командой /iau на сообщение пользователя о котором хотете узнать информацию')
+            bot.send_message(message.chat.id, 'Неверный синтаксис команды: Нужно ответить командой /iau на сообщение пользователя о котором хотете узнать информацию.')
         else:
             c = conn.cursor()
             c.execute('SELECT warn_count FROM warn WHERE chat_id=? AND user_id=?', user_info)
@@ -143,11 +142,11 @@ def set_settings(message):
                 c.execute('UPDATE settings SET max_warn = ?, time_ban = ?, mat_lst = ? WHERE chat_id = ?', (settings[0][0], settings[0][1], settings[0][2], settings[1]))
             else:
                 c.execute('INSERT INTO settings (chat_id, max_warn, time_ban, mat_lst) VALUES (?, ?, ?, ?);', (settings[1], settings[0][0], settings[0][1], settings[0][2]))
-            bot.send_message(message.chat.id, 'Настройки чата успешно обновлены')
+            bot.send_message(message.chat.id, 'Настройки чата успешно обновлены.')
             conn.commit()
             c.close()
         except IndexError:
-            bot.send_message(message.chat.id, 'Неверный синтаксис команды: Нужно отправить команду /set_settings 3 7200 мат,мат  -  где 3 - максимум предупреждений перед мутом, time_ban - время мута после лимита предупреждений, mat_lst - список запрещенных слов')
+            bot.send_message(message.chat.id, 'Неверный синтаксис команды: Нужно отправить команду /set_settings 3 7200 мат,мат  -  где 3 - максимум предупреждений перед мутом, time_ban - время мута после лимита предупреждений, mat_lst - список запрещенных слов.')
 
 @bot.message_handler(commands=['ban', 'Ban'])
 def ban(message):
@@ -165,7 +164,7 @@ def ban(message):
                 bot.kick_chat_member(message.chat.id, message.reply_to_message.from_user.id, until_date=until)
                 bot.send_message(message.chat.id, '<b>{0}</b> забанен на {1} мин.'.format(name, message.text[5:]), parse_mode='HTML')
         except (AttributeError, ValueError):
-            bot.send_message(message.chat.id, 'Неверный синтаксис команды: Нужно ответить командой /ban на нужное сообщение и указать время бана, если время не указано - бан навсегда')
+            bot.send_message(message.chat.id, 'Неверный синтаксис команды: Нужно ответить командой /ban на нужное сообщение и указать время бана, если время не указано - бан навсегда.')
 
 @bot.message_handler(commands=['mute', 'Mute'])
 def mute(message):
@@ -182,7 +181,7 @@ def mute(message):
             text = '<b>{0}</b> muted на {1} мин.'.format(message.reply_to_message.from_user.first_name, int(message.text.split()[1]))
             bot.send_message(message.chat.id, parse_mode='HTML', text=text)
         except (AttributeError, IndexError, ValueError):
-            bot.send_message(message.chat.id, 'Неверный синтаксис команды: /mute кол-во_минут')
+            bot.send_message(message.chat.id, 'Неверный синтаксис команды: /mute кол-во_минут.')
 
 
 @bot.message_handler(commands=['unmute', 'Unmute'])
@@ -199,7 +198,7 @@ def unmute(message):
             text = '<b>{0}</b> разблокирован'.format(message.reply_to_message.from_user.first_name)
             bot.send_message(message.chat.id, parse_mode='HTML', text=text)
         except AttributeError:
-            bot.send_message(message.chat.id, 'Неверный синтаксис команды: нужно ответить /unmute на сообщения юзера, которого нужно размутить')
+            bot.send_message(message.chat.id, 'Неверный синтаксис команды: нужно ответить /unmute на сообщения юзера, которого нужно размутить.')
 
 def check_command(message):
     if not message.text is None:
