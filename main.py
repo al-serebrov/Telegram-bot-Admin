@@ -12,8 +12,9 @@ my_id = config.my_id
 bot = telebot.TeleBot(config.TOKEN)
 conn = sqlite3.connect('warn.db', check_same_thread=False)
 
-def check(message):
-    if bot.get_chat_member(message.chat.id, message.from_user.id).status in user_plus:
+def check(message, user_id = 0):
+    u_id = message.from_user.id if not user_id else user_id
+    if bot.get_chat_member(message.chat.id, u_id).status in user_plus:
         return True
 
 @bot.message_handler(commands=['pin', 'Pin'])
@@ -45,7 +46,7 @@ def sd_ch(message):
 def warn_do(message, warn):
     c = conn.cursor()
     test = c.execute('SELECT chat_id, user_id, warn_count FROM warn WHERE chat_id=? AND user_id=?', warn[:2]).fetchone()
-    name = message.reply_to_message.from_user.first_name if message.reply_to_message else warn[2]
+    name = warn[2] if len(warn) == 4 else warn[2]
     if test is None:
         c.execute('INSERT INTO warn (chat_id, user_id, warn_count) VALUES (?, ?, 1)', warn[:2])
         text = 'Количество предупреждений <b>{0}</b> увеличено до - 1.'.format(name)
@@ -77,13 +78,14 @@ def warn(message):
     bot.delete_message(message.chat.id, message.message_id)
     if user_is_admin:
         try:
-            warn = (message.chat.id, message.reply_to_message.from_user.id)
+            warn = (message.chat.id, message.reply_to_message.from_user.id, message.reply_to_message.from_user.first_name, message.reply_to_message.from_user.is_bot)
         except AttributeError:
             bot.send_message(message.chat.id, 'Неверный синтаксис команды: Нужно ответить командой /warn на нужное сообщение.')
         else:
-            if check(message):
+            if check(message, message.reply_to_message.from_user.id):
                 bot.send_message(message.chat.id, 'Невозможно выдать предупреждение админу.')
             else:
+                bot.delete_message(message.chat.id, message.reply_to_message.message_id)
                 warn_do(message, warn)
 
 @bot.message_handler(commands=['unwarn', 'Unwarn'])
@@ -93,9 +95,6 @@ def unwarn(message):
     if user_is_admin:
         try:
             warn_c = (message.text.split()[1], message.chat.id, message.reply_to_message.from_user.id)
-        except IndexError:
-            bot.send_message(message.chat.id, 'Неверный синтаксис команды: Нужно ответить командой /unwarn на нужное сообщение и указать количество варнов, которые Вы хотите снять.')
-        else:
             c = conn.cursor()
             c.execute('UPDATE warn SET warn_count=warn_count - ? WHERE chat_id = ? AND user_id = ?', warn_c)
             c.execute('SELECT warn_count FROM warn WHERE chat_id=? AND user_id=?', warn_c[1:])
@@ -107,6 +106,8 @@ def unwarn(message):
                 bot.send_message(message.chat.id, 'Количество предупреждений <b>{0}</b> уменьшено до - {1}.'.format(message.reply_to_message.from_user.first_name, warn[0]), parse_mode='HTML')
             conn.commit()
             c.close()
+        except (IndexError, TypeError, AttributeError):
+            bot.send_message(message.chat.id, 'Неверный синтаксис команды: Нужно ответить командой /unwarn на нужное сообщение и указать количество варнов, которые Вы хотите снять.')
 
 @bot.message_handler(commands=['iau', 'Iau'])
 def info_about_user(message):
