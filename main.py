@@ -7,8 +7,6 @@ import sqlite3
 import re
 
 user_plus = ('creator', 'administrator')
-my_id = config.my_id
-
 bot = telebot.TeleBot(config.TOKEN)
 conn = sqlite3.connect('warn.db', check_same_thread=False)
 
@@ -16,6 +14,20 @@ def check(message, user_id = 0):
     u_id = message.from_user.id if not user_id else user_id
     if bot.get_chat_member(message.chat.id, u_id).status in user_plus:
         return True
+
+@bot.message_handler(content_types=['new_chat_members'])
+def welcome(message):
+    if message.new_chat_member.id == config.bot_id:
+        bot.send_message(message.chat.id, 'Я должен быть администратором. Иначе мой функционал работать не будет!')
+        c = conn.cursor()
+        c.execute('SELECT id FROM settings WHERE chat_id=?', (message.chat.id,))
+        db_id = c.fetchone()
+        if db_id:
+            c.execute('UPDATE settings SET last_mess = ? WHERE chat_id = ?', (message.message_id, message.chat.id))
+        else:
+            c.execute('INSERT INTO settings (chat_id, last_mess) VALUES (?, ?)', (message.chat.id, message.message_id))
+        conn.commit()
+        c.close()
 
 @bot.message_handler(commands=['pin', 'Pin'])
 def pin(message):
@@ -32,16 +44,22 @@ def sd(message):
     user_is_admin = check(message)
     bot.delete_message(message.chat.id, message.message_id)
     if user_is_admin:
-        bot.send_message(message.chat.id, message.text[3:])
+        try:
+            bot.send_message(message.chat.id, ' '.join(message.text.split()[1:]))
+        except telebot.apihelper.ApiException:
+            bot.send_message(message.chat.id, 'Неверный синтаксис команды: Нужно отправить команду /sd text - где text Ваше сообщение.')
 
 @bot.message_handler(commands=['sd_ch', 'Sd_ch'])
 def sd_ch(message):
     user_is_admin = check(message)
     bot.delete_message(message.chat.id, message.message_id)
-    if user_is_admin and message.from_user.id == my_id:
-        text = message.reply_to_message.text if not message.reply_to_message is None else message.text[6:]
-        bot.send_message('@pylearn_channel', text)
-        bot.send_message(message.chat.id, "Cообщение успешно отправлено в канал t.me/pylearn_channel", disable_web_page_preview=True)
+    if user_is_admin and message.from_user.id == config.my_id:
+        try:
+            text = message.reply_to_message.text if not message.reply_to_message is None else ' '.join(message.text.split()[1:])
+            bot.send_message('@pylearn_channel', text)
+            bot.send_message(message.chat.id, "Cообщение успешно отправлено в канал t.me/pylearn_channel", disable_web_page_preview=True)
+        except IndexError:
+            bot.send_message(message.chat.id, 'Неверный синтаксис команды: Нужно ответить командой /sd_ch на нужное сообщение или через пробел написать текст для отправки.')
 
 def warn_do(message, warn):
     c = conn.cursor()
@@ -126,7 +144,6 @@ def info_about_user(message):
                 bot.send_message(message.chat.id, '<b>{0}</b> имеет количество предупреждений - {1}.'.format(message.reply_to_message.from_user.first_name, warn_count[0]), parse_mode='HTML')
             else:
                 bot.send_message(message.chat.id, '<b>{0}</b> не имеет предупреждений.'.format(message.reply_to_message.from_user.first_name), parse_mode='HTML')
-            conn.commit()
             c.close()
 
 @bot.message_handler(commands=['set_settings', 'Set_settings'])
@@ -137,12 +154,7 @@ def set_settings(message):
         try:
             settings = (message.text.split()[1:], message.chat.id)
             c = conn.cursor()
-            c.execute('SELECT id FROM settings WHERE chat_id=?', settings[1:])
-            id = c.fetchone()
-            if id:
-                c.execute('UPDATE settings SET max_warn = ?, time_ban = ?, mat_lst = ? WHERE chat_id = ?', (settings[0][0], settings[0][1], settings[0][2], settings[1]))
-            else:
-                c.execute('INSERT INTO settings (chat_id, max_warn, time_ban, mat_lst) VALUES (?, ?, ?, ?);', (settings[1], settings[0][0], settings[0][1], settings[0][2]))
+            c.execute('UPDATE settings SET max_warn = ?, time_ban = ?, mat_lst = ? WHERE chat_id = ?', (settings[0][0], settings[0][1], settings[0][2], settings[1]))
             bot.send_message(message.chat.id, 'Настройки чата успешно обновлены.')
             conn.commit()
             c.close()
@@ -184,7 +196,6 @@ def mute(message):
         except (AttributeError, IndexError, ValueError):
             bot.send_message(message.chat.id, 'Неверный синтаксис команды: /mute кол-во_минут.')
 
-
 @bot.message_handler(commands=['unmute', 'Unmute'])
 def unmute(message):
     user_is_admin = check(message)
@@ -202,8 +213,23 @@ def unmute(message):
             bot.send_message(message.chat.id, 'Неверный синтаксис команды: нужно ответить /unmute на сообщения юзера, которого нужно размутить.')
 
 def check_command(message):
-    if not message.text is None:
-        return message.text.startswith('/')
+    c = conn.cursor()
+    notif = c.execute('SELECT notif_range, last_mess, notif_mess FROM settings WHERE chat_id=?', (message.chat.id,)).fetchone()
+    if notif and not notif[0] is None:     # Функция циклических напоминаний
+        if message.message_id - notif[1] >= notif[0]+1:
+            bot.send_message(message.chat.id, notif[2], disable_web_page_preview=True)
+            c.execute('UPDATE settings SET last_mess = ? WHERE chat_id = ?', (message.message_id, message.chat.id))
+    command_is_allowed = c.execute('SELECT com_is_allow FROM settings WHERE chat_id=?', (message.chat.id,)).fetchone()
+    conn.commit()
+    c.close()
+    if not message.text is None:    # Функция запрета сообщений начинающих с /(тоесть команд ботам)
+        try:
+            if command_is_allowed[0] == 'True':
+                return False
+            elif message.text.startswith('/') and not check(message):
+                return True
+        except TypeError:
+            pass
 
 @bot.message_handler(func=check_command)
 def del_command(message):
@@ -212,17 +238,18 @@ def del_command(message):
 def check_mat(message):
     if not message.text is None:
         c = conn.cursor()
-        c.execute('SELECT mat_lst FROM settings WHERE chat_id = ?', (message.chat.id,))
+        c.execute('SELECT mat_lst, auto_warn FROM settings WHERE chat_id = ?', (message.chat.id,))
         res = c.fetchone()
-        conn.commit()
         c.close()
         try:
+            if res[1] == 'False':
+                return False
             mes = frozenset(re.findall(r'\w+', message.text.lower())) & frozenset(res[0].split(','))
-        except TypeError:
+        except (AttributeError, TypeError):
             pass
         else:
             mes = frozenset(re.findall(r'\w+', message.text.lower())) & frozenset(res[0].split(','))
-        return True if mes else False
+            return True if mes else False
 
 @bot.message_handler(func=check_mat)
 def del_mat(message):
@@ -234,9 +261,9 @@ def del_mat(message):
         warn_do(message, warn)
 
 if __name__ == '__main__':
-    bot.remove_webhook()
     while True:
         try:
-            bot.polling(none_stop=True, interval=2)
-        except:
-            bot.polling(none_stop=True, interval=2)
+            bot.polling(none_stop=True)
+        except Exception as e:
+            bot.send_message(config.debug_chat, e)
+            bot.polling(none_stop=True)
