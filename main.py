@@ -21,10 +21,12 @@ def welcome(message):
     c = conn.cursor()
     c.execute('SELECT welcome_mes FROM settings WHERE chat_id=?', (message.chat.id,))
     welcome_m = c.fetchone()
-    if welcome_m[0]:
-        sent_m = bot.send_message(message.chat.id,
-        'Приветствуем, '+'<a href="tg://user?id='+str(message.new_chat_member.id)+'">'+message.new_chat_member.first_name+"</a>, в нашем чате!"+welcome_m[0],
-        parse_mode='HTML', disable_web_page_preview=True)
+    sent_m = 0
+    if not None is welcome_m and not message.new_chat_member.id == config.bot_id:
+        if not isinstance(welcome_m[0], type(None)) or not welcome_m[0] == 'dis':
+            sent_m = bot.send_message(message.chat.id,
+            'Приветствуем, '+'<a href="tg://user?id='+str(message.new_chat_member.id)+'">'+message.new_chat_member.first_name+"</a>, в нашем чате! "+welcome_m[0],
+            parse_mode='HTML', disable_web_page_preview=True)
     elif message.new_chat_member.id == config.bot_id:
         sent_m = bot.send_message(message.chat.id, 'Я должен быть администратором. Иначе мой функционал работать не будет!')
         c.execute('SELECT id FROM settings WHERE chat_id=?', (message.chat.id,))
@@ -34,9 +36,9 @@ def welcome(message):
         else:
             c.execute('INSERT INTO settings (chat_id, last_mess) VALUES (?, ?)', (message.chat.id, message.message_id))
     conn.commit()
-    Timer(60.0, bot.delete_message, args=[sent_m.chat.id, sent_m.message_id]).start()
+    if sent_m:
+        Timer(60.0, bot.delete_message, args=[sent_m.chat.id, sent_m.message_id]).start()
     c.close()
-
 
 @bot.message_handler(commands=['pin', 'Pin'])
 def pin(message):
@@ -99,8 +101,8 @@ def warn_do(message, warn):
                                     can_add_web_page_previews=False)
             sent_m = bot.send_message(message.chat.id, '[{0}](tg://user?id={1}) заблокирован на {2} мин.'.format(name, warn[1], time_ban), parse_mode='markdown')
             c.execute('DELETE FROM warn WHERE chat_id=? AND user_id=?', warn[:2])
+    Timer(10.0, bot.delete_message, args=[sent_m.chat.id, sent_m.message_id]).start()
     conn.commit()
-    Timer(30.0, bot.delete_message, args=[sent_m.chat.id, sent_m.message_id]).start()
     c.close()
 
 @bot.message_handler(commands=['warn', 'Warn'])
@@ -118,7 +120,7 @@ def warn(message):
             else:
                 bot.delete_message(message.chat.id, message.reply_to_message.message_id)
                 warn_do(message, warn)
-        Timer(10.0, bot.delete_message, args=[sent_m.chat.id, sent_m.message_id]).start()
+        Timer(15.0, bot.delete_message, args=[sent_m.chat.id, sent_m.message_id]).start()
 
 @bot.message_handler(commands=['unwarn', 'Unwarn'])
 def unwarn(message):
@@ -144,7 +146,7 @@ def unwarn(message):
             c.close()
         except (IndexError, TypeError, AttributeError):
             sent_m = bot.send_message(message.chat.id, 'Неверный синтаксис команды: Нужно ответить командой /unwarn на нужное сообщение и указать количество варнов, которые Вы хотите снять.')
-        Timer(15.0, bot.delete_message, args=[sent_m.chat.id, sent_m.message_id]).start()
+        Timer(60.0, bot.delete_message, args=[sent_m.chat.id, sent_m.message_id]).start()
 
 @bot.message_handler(commands=['iau', 'Iau'])
 def info_about_user(message):
@@ -170,22 +172,136 @@ def info_about_user(message):
         Timer(15.0, bot.delete_message, args=[sent_m.chat.id, sent_m.message_id]).start()
             
 
-@bot.message_handler(commands=['set_settings', 'Set_settings'])
-def set_settings(message):
+@bot.message_handler(commands=['warn_settings', 'Warn_settings'])
+def warn_settings(message):
     user_is_admin = check(message)
     bot.delete_message(message.chat.id, message.message_id)
     if user_is_admin:
         try:
             settings = (message.text.split()[1:], message.chat.id)
             c = conn.cursor()
-            c.execute('UPDATE settings SET max_warn = ?, time_ban = ?, mat_lst = ? WHERE chat_id = ?', (settings[0][0], settings[0][1], settings[0][2], settings[1]))
+            c.execute('UPDATE settings SET max_warn = ?, time_ban = ? WHERE chat_id = ?', (settings[0][0], settings[0][1], settings[1]))
             sent_m = bot.send_message(message.chat.id, 'Настройки чата успешно обновлены.')
             conn.commit()
             c.close()
         except IndexError:
             sent_m = bot.send_message(message.chat.id,
-            'Неверный синтаксис команды: Нужно отправить команду /set_settings 3 7200 мат,мат  -  где 3 - максимум предупреждений перед мутом, time_ban - время мута после лимита предупреждений, mat_lst - список запрещенных слов.')
-        Timer(15.0, bot.delete_message, args=[sent_m.chat.id, sent_m.message_id]).start() 
+            'Неверный синтаксис команды: Нужно отправить команду /warn_settings 3 7200 - где 3 - максимум предупреждений перед мутом, 7200 - время мута после лимита предупреждений.')
+        Timer(15.0, bot.delete_message, args=[sent_m.chat.id, sent_m.message_id]).start()
+
+@bot.message_handler(commands=['black_words', 'Black_words'])
+def black_words(message):
+    user_is_admin = check(message)
+    bot.delete_message(message.chat.id, message.message_id)
+    if user_is_admin:
+        try:
+            settings = (message.text.split()[1], message.chat.id)
+            if not ',' in settings[0] or ' ' in settings[0]:
+                raise IndexError
+            c = conn.cursor()
+            c.execute('UPDATE settings SET mat_lst = ? WHERE chat_id = ?', (settings[0], settings[1]))
+            sent_m = bot.send_message(message.chat.id, 'Настройки чата успешно обновлены.')
+            conn.commit()
+            c.close()
+        except IndexError:
+            sent_m = bot.send_message(message.chat.id,
+            'Неверный синтаксис команды: Нужно отправить команду /black_words слово,слово,слово - где "слово" запрещенное слово. ВАЖНО: пробелы имеют значение')
+        Timer(15.0, bot.delete_message, args=[sent_m.chat.id, sent_m.message_id]).start()
+
+@bot.message_handler(commands=['com_is_allow', 'Com_is_allow'])
+def com_is_allow(message):
+    user_is_admin = check(message)
+    bot.delete_message(message.chat.id, message.message_id)
+    if user_is_admin:
+        try:
+            settings = (message.text.split()[1], message.chat.id)
+            if settings[0] not in ('False', 'True'):
+                raise IndexError
+            c = conn.cursor()
+            c.execute('UPDATE settings SET com_is_allow = ? WHERE chat_id = ?', (settings[0], settings[1]))
+            sent_m = bot.send_message(message.chat.id, 'Настройки чата успешно обновлены.')
+            conn.commit()
+            c.close()
+        except IndexError:
+            sent_m = bot.send_message(message.chat.id,
+            'Неверный синтаксис команды: Нужно отправить команду /com_is_allow значение - где допустимые значения True или False. По-умолчанию False')
+        Timer(15.0, bot.delete_message, args=[sent_m.chat.id, sent_m.message_id]).start()
+
+@bot.message_handler(commands=['auto_warn', 'Auto_warn'])
+def auto_warn(message):
+    user_is_admin = check(message)
+    bot.delete_message(message.chat.id, message.message_id)
+    if user_is_admin:
+        try:
+            settings = (message.text.split()[1], message.chat.id)
+            if settings[0] not in ('False', 'True'):
+                raise IndexError
+            c = conn.cursor()
+            c.execute('UPDATE settings SET auto_warn = ? WHERE chat_id = ?', (settings[0], settings[1]))
+            sent_m = bot.send_message(message.chat.id, 'Настройки чата успешно обновлены.')
+            conn.commit()
+            c.close()
+        except IndexError:
+            sent_m = bot.send_message(message.chat.id,
+            'Неверный синтаксис команды: Нужно отправить команду /auto_warn значение - где допустимые значения True или False. По-умолчанию True')
+        Timer(15.0, bot.delete_message, args=[sent_m.chat.id, sent_m.message_id]).start()
+
+@bot.message_handler(commands=['notif_range', 'Notif_range'])
+def notif_range(message):
+    user_is_admin = check(message)
+    bot.delete_message(message.chat.id, message.message_id)
+    if user_is_admin:
+        try:
+            settings = (message.text.split()[1], message.chat.id)
+            if not isinstance(settings[0], str):
+                raise IndexError
+            c = conn.cursor()
+            c.execute('UPDATE settings SET notif_range = ? WHERE chat_id = ?', (settings[0], settings[1]))
+            sent_m = bot.send_message(message.chat.id, 'Настройки чата успешно обновлены.')
+            conn.commit()
+            c.close()
+        except IndexError:
+            sent_m = bot.send_message(message.chat.id,
+            'Неверный синтаксис команды: Нужно отправить команду /notif_range значение - где допустимые значения от 1 и больше, если 0 - функция считаеться отключенной. По-умолчанию отключена')
+        Timer(15.0, bot.delete_message, args=[sent_m.chat.id, sent_m.message_id]).start()
+
+@bot.message_handler(commands=['notif_mess', 'Notif_mess'])
+def notif_mess(message):
+    user_is_admin = check(message)
+    bot.delete_message(message.chat.id, message.message_id)
+    if user_is_admin:
+        try:
+            if not ' ' in message.text:
+                raise IndexError
+            settings = (message.text[12:], message.chat.id)
+            c = conn.cursor()
+            c.execute('UPDATE settings SET notif_mess = ? WHERE chat_id = ?', (settings[0], settings[1]))
+            sent_m = bot.send_message(message.chat.id, 'Настройки чата успешно обновлены.')
+            conn.commit()
+            c.close()
+        except IndexError:
+            sent_m = bot.send_message(message.chat.id,
+            'Неверный синтаксис команды: Нужно отправить команду /notif_mess ... - где ... текст, который будет отправляться в чат с переодичностю заданной команде /notif_range.')
+        Timer(15.0, bot.delete_message, args=[sent_m.chat.id, sent_m.message_id]).start()
+
+@bot.message_handler(commands=['welcome_mes', 'Welcome_mes'])
+def welcome_mess(message):
+    user_is_admin = check(message)
+    bot.delete_message(message.chat.id, message.message_id)
+    if user_is_admin:
+        try:
+            if not ' ' in message.text:
+                raise IndexError
+            settings = (message.text[13:], message.chat.id)
+            c = conn.cursor()
+            c.execute('UPDATE settings SET welcome_mes = ? WHERE chat_id = ?', (settings[0], settings[1]))
+            sent_m = bot.send_message(message.chat.id, 'Настройки чата успешно обновлены.')
+            conn.commit()
+            c.close()
+        except IndexError:
+            sent_m = bot.send_message(message.chat.id,
+            'Неверный синтаксис команды: Нужно отправить команду /welcome_mes ... - где ... текст, который будет отправляться при вступлении пользователя в чат. Для отключения передайте текст dis')
+        Timer(15.0, bot.delete_message, args=[sent_m.chat.id, sent_m.message_id]).start()
 
 @bot.message_handler(commands=['ban', 'Ban'])
 def ban(message):
@@ -245,7 +361,9 @@ def check_command(message):
     c = conn.cursor()
     notif = c.execute('SELECT notif_range, last_mess, notif_mess FROM settings WHERE chat_id=?', (message.chat.id,)).fetchone()
     if notif and not notif[0] is None:     # Функция циклических напоминаний
-        if message.message_id - notif[1] >= notif[0]+1:
+        if not notif[0]:
+            pass
+        elif message.message_id - notif[1] >= notif[0]+1:
             bot.send_message(message.chat.id, notif[2], disable_web_page_preview=True)
             c.execute('UPDATE settings SET last_mess = ? WHERE chat_id = ?', (message.message_id, message.chat.id))
     command_is_allowed = c.execute('SELECT com_is_allow FROM settings WHERE chat_id=?', (message.chat.id,)).fetchone()
