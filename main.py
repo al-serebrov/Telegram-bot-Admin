@@ -182,7 +182,7 @@ def info_about_chat(message):
         info[2] = 'Разрешены' if info[2] == 'True' else 'Запрещены'
         info[3] = 'Включены' if not info[2] == 'True' else 'Отключены'
         info[4] = info[4] if info[4] else 'Отключены'
-        bot.send_message(message.chat.id, 
+        sent_m = bot.send_message(message.chat.id, 
         '''
         Настройки чата:
 1) _Максимальное кол-во предупреждений:_ *{0}*
@@ -192,6 +192,7 @@ def info_about_chat(message):
 5) _Циклические рассылки:_ *{4}*
         '''.format(info[0], info[1], info[2], info[3], info[4]), parse_mode='markdown')
         c.close()
+        Timer(45.0, bot.delete_message, args=[sent_m.chat.id, sent_m.message_id]).start()
 
 @bot.message_handler(commands=['warn_settings', 'Warn_settings'])
 def warn_settings(message):
