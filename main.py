@@ -171,6 +171,27 @@ def info_about_user(message):
             c.close()
         Timer(15.0, bot.delete_message, args=[sent_m.chat.id, sent_m.message_id]).start()
             
+@bot.message_handler(commands=['info_about_chat', 'Info_about_chat'])
+def info_about_chat(message):
+    user_is_admin = check(message)
+    bot.delete_message(message.chat.id, message.message_id)
+    if user_is_admin:
+        c = conn.cursor()
+        c.execute('SELECT max_warn, time_ban, com_is_allow, auto_warn, notif_range FROM settings WHERE chat_id = ?', (message.chat.id,))
+        info = list(c.fetchone())
+        info[2] = 'Разрешены' if info[2] == 'True' else 'Запрещены'
+        info[3] = 'Включены' if not info[2] == 'True' else 'Отключены'
+        info[4] = info[4] if info[4] else 'Отключены'
+        bot.send_message(message.chat.id, 
+        '''
+        Настройки чата:
+1) _Максимальное кол-во предупреждений:_ *{0}*
+2) _Время мута после получение макс. кол-ва предупреждений:_ *{1}* мин.
+3) _Команды ботам:_ *{2}*
+4) _Автоматические предупреждения:_ *{3}*
+5) _Циклические рассылки:_ *{4}*
+        '''.format(info[0], info[1], info[2], info[3], info[4]), parse_mode='markdown')
+        c.close()
 
 @bot.message_handler(commands=['warn_settings', 'Warn_settings'])
 def warn_settings(message):
@@ -179,6 +200,8 @@ def warn_settings(message):
     if user_is_admin:
         try:
             settings = (message.text.split()[1:], message.chat.id)
+            if int(settings[0][0]) <= 1 or int(settings[0][1]) < 1:
+                raise IndexError
             c = conn.cursor()
             c.execute('UPDATE settings SET max_warn = ?, time_ban = ? WHERE chat_id = ?', (settings[0][0], settings[0][1], settings[1]))
             sent_m = bot.send_message(message.chat.id, 'Настройки чата успешно обновлены.')
@@ -186,7 +209,7 @@ def warn_settings(message):
             c.close()
         except IndexError:
             sent_m = bot.send_message(message.chat.id,
-            'Неверный синтаксис команды: Нужно отправить команду /warn_settings 3 7200 - где 3 - максимум предупреждений перед мутом, 7200 - время мута после лимита предупреждений.')
+            'Неверный синтаксис команды: Нужно отправить команду /warn_settings 3 7200 - где 3 - максимум предупреждений перед мутом(меньше 2 нельзя), 7200 - время мута после лимита предупреждений.')
         Timer(15.0, bot.delete_message, args=[sent_m.chat.id, sent_m.message_id]).start()
 
 @bot.message_handler(commands=['black_words', 'Black_words'])
@@ -414,4 +437,3 @@ if __name__ == '__main__':
             bot.polling(none_stop=True)
         except Exception as e:
             bot.send_message(config.debug_chat, e)
-            bot.polling(none_stop=True)
