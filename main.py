@@ -180,7 +180,7 @@ def info_about_chat(message):
         c.execute('SELECT max_warn, time_ban, com_is_allow, auto_warn, notif_range FROM settings WHERE chat_id = ?', (message.chat.id,))
         info = list(c.fetchone())
         info[2] = 'Разрешены' if info[2] == 'True' else 'Запрещены'
-        info[3] = 'Включены' if not info[2] == 'True' else 'Отключены'
+        info[3] = 'Включены' if info[3] == 'True' else 'Отключены'
         info[4] = info[4] if info[4] else 'Отключены'
         sent_m = bot.send_message(message.chat.id, 
         '''
