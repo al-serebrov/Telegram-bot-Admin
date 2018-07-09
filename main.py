@@ -82,7 +82,7 @@ def warn_do(message, warn):
     if test is None:
         c.execute('INSERT INTO warn (chat_id, user_id, warn_count) VALUES (?, ?, 1)', warn[:2])
         text = 'Количество предупреждений [{0}](tg://user?id={1}) увеличено до - 1.'.format(name, warn[1])
-        sent_m = bot.send_message(message.chat.id, parse_mode='markdown', text=text)
+        bot.send_message(message.chat.id, parse_mode='markdown', text=text)
     else:
         c.execute('UPDATE warn SET warn_count = warn_count + 1 WHERE chat_id=? AND user_id=?', warn[:2])
         c.execute('SELECT warn_count FROM warn WHERE chat_id=? AND user_id=?', warn[:2])
@@ -91,7 +91,7 @@ def warn_do(message, warn):
         data = c.fetchone()
         max_warn, time_ban = data[0], data[1]
         text = 'Количество предупреждений [{0}](tg://user?id={1}) увеличено до - {2}.'.format(name, warn[1], warn_count)
-        sent_m = bot.send_message(message.chat.id, parse_mode='markdown', text=text)
+        bot.send_message(message.chat.id, parse_mode='markdown', text=text)
         if warn_count >= max_warn:
             until = math.floor(time.time()) + time_ban * 60
             bot.restrict_chat_member(message.chat.id, warn[1], until_date=until, 
@@ -99,9 +99,8 @@ def warn_do(message, warn):
                                     can_send_media_messages=False, 
                                     can_send_other_messages=False,
                                     can_add_web_page_previews=False)
-            sent_m = bot.send_message(message.chat.id, '[{0}](tg://user?id={1}) заблокирован на {2} мин.'.format(name, warn[1], time_ban), parse_mode='markdown')
+            bot.send_message(message.chat.id, '[{0}](tg://user?id={1}) заблокирован на {2} мин.'.format(name, warn[1], time_ban), parse_mode='markdown')
             c.execute('DELETE FROM warn WHERE chat_id=? AND user_id=?', warn[:2])
-    Timer(10.0, bot.delete_message, args=[sent_m.chat.id, sent_m.message_id]).start()
     conn.commit()
     c.close()
 
@@ -146,7 +145,7 @@ def unwarn(message):
             c.close()
         except (IndexError, TypeError, AttributeError):
             sent_m = bot.send_message(message.chat.id, 'Неверный синтаксис команды: Нужно ответить командой /unwarn на нужное сообщение и указать количество варнов, которые Вы хотите снять.')
-        Timer(60.0, bot.delete_message, args=[sent_m.chat.id, sent_m.message_id]).start()
+        Timer(25.0, bot.delete_message, args=[sent_m.chat.id, sent_m.message_id]).start()
 
 @bot.message_handler(commands=['iau', 'Iau'])
 def info_about_user(message):
@@ -362,7 +361,7 @@ def mute(message):
             sent_m = bot.send_message(message.chat.id, parse_mode='markdown', text=text)
         except (AttributeError, IndexError, ValueError):
             sent_m = bot.send_message(message.chat.id, 'Неверный синтаксис команды: /mute кол-во_минут.')
-        Timer(15.0, bot.delete_message, args=[sent_m.chat.id, sent_m.message_id]).start()
+        Timer(25.0, bot.delete_message, args=[sent_m.chat.id, sent_m.message_id]).start()
 
 @bot.message_handler(commands=['unmute', 'Unmute'])
 def unmute(message):
@@ -379,7 +378,7 @@ def unmute(message):
             sent_m = bot.send_message(message.chat.id, parse_mode='markdown', text=text)
         except AttributeError:
             sent_m = bot.send_message(message.chat.id, 'Неверный синтаксис команды: нужно ответить /unmute на сообщения юзера, которого нужно размутить.')
-        Timer(15.0, bot.delete_message, args=[sent_m.chat.id, sent_m.message_id]).start()
+        Timer(25.0, bot.delete_message, args=[sent_m.chat.id, sent_m.message_id]).start()
 
 def check_command(message):
     c = conn.cursor()
