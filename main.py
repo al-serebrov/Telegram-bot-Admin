@@ -11,10 +11,14 @@ user_plus = ('creator', 'administrator')
 bot = telebot.TeleBot(config.TOKEN)
 conn = sqlite3.connect('warn.db', check_same_thread=False)
 
+print(bot.get_me())
+
+
 def check(message, user_id = 0):
     u_id = message.from_user.id if not user_id else user_id
     if bot.get_chat_member(message.chat.id, u_id).status in user_plus:
         return True
+
 
 @bot.message_handler(content_types=['new_chat_members'])
 def welcome(message):
@@ -94,9 +98,9 @@ def warn_do(message, warn):
         bot.send_message(message.chat.id, parse_mode='markdown', text=text)
         if warn_count >= max_warn:
             until = math.floor(time.time()) + time_ban * 60
-            bot.restrict_chat_member(message.chat.id, warn[1], until_date=until, 
-                                    can_send_messages= False, 
-                                    can_send_media_messages=False, 
+            bot.restrict_chat_member(message.chat.id, warn[1], until_date=until,
+                                    can_send_messages= False,
+                                    can_send_media_messages=False,
                                     can_send_other_messages=False,
                                     can_add_web_page_previews=False)
             bot.send_message(message.chat.id, '[{0}](tg://user?id={1}) заблокирован на {2} мин.'.format(name, warn[1], time_ban), parse_mode='markdown')
@@ -155,7 +159,7 @@ def info_about_user(message):
         try:
             user_info = (message.chat.id, message.reply_to_message.from_user.id)
         except AttributeError:
-            sent_m = bot.send_message(message.chat.id, 
+            sent_m = bot.send_message(message.chat.id,
             'Неверный синтаксис команды: Нужно ответить командой /iau на сообщение пользователя о котором хотете узнать информацию.')
         else:
             c = conn.cursor()
@@ -169,7 +173,7 @@ def info_about_user(message):
                 sent_m = bot.send_message(message.chat.id, '[{0}](tg://user?id={1}) не имеет предупреждений.'.format(message.reply_to_message.from_user.first_name, message.reply_to_message.from_user.id), parse_mode='markdown')
             c.close()
         Timer(15.0, bot.delete_message, args=[sent_m.chat.id, sent_m.message_id]).start()
-            
+
 @bot.message_handler(commands=['info_about_chat', 'Info_about_chat'])
 def info_about_chat(message):
     user_is_admin = check(message)
@@ -181,7 +185,7 @@ def info_about_chat(message):
         info[2] = 'Разрешены' if info[2] == 'True' else 'Запрещены'
         info[3] = 'Включены' if info[3] == 'True' else 'Отключены'
         info[4] = info[4] if info[4] else 'Отключены'
-        sent_m = bot.send_message(message.chat.id, 
+        sent_m = bot.send_message(message.chat.id,
         '''
         Настройки чата:
 1) _Максимальное кол-во предупреждений:_ *{0}*
@@ -352,9 +356,9 @@ def mute(message):
     if user_is_admin:
         try:
             until = math.floor(time.time()) + int(message.text.split()[1]) * 60
-            bot.restrict_chat_member(message.chat.id, message.reply_to_message.from_user.id, until_date=until, 
+            bot.restrict_chat_member(message.chat.id, message.reply_to_message.from_user.id, until_date=until,
                 can_send_messages= False,
-                can_send_media_messages=False, 
+                can_send_media_messages=False,
                 can_send_other_messages=False,
                 can_add_web_page_previews=False)
             text = '[{0}](tg://user?id={1}) замутен на {2} мин.'.format(message.reply_to_message.from_user.first_name, message.reply_to_message.from_user.id, int(message.text.split()[1]))
@@ -369,9 +373,9 @@ def unmute(message):
     bot.delete_message(message.chat.id, message.message_id)
     if user_is_admin:
         try:
-            bot.restrict_chat_member(message.chat.id, message.reply_to_message.from_user.id, until_date=None, 
+            bot.restrict_chat_member(message.chat.id, message.reply_to_message.from_user.id, until_date=None,
                 can_send_messages= True,
-                can_send_media_messages=True, 
+                can_send_media_messages=True,
                 can_send_other_messages=True,
                 can_add_web_page_previews=True)
             text = '[{0}](tg://user?id={1}) разблокирован.'.format(message.reply_to_message.from_user.first_name, message.reply_to_message.from_user.id)
