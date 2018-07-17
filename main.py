@@ -11,8 +11,6 @@ user_plus = ('creator', 'administrator')
 bot = telebot.TeleBot(config.TOKEN)
 conn = sqlite3.connect('warn.db', check_same_thread=False)
 
-print(bot.get_me())
-
 
 def check(message, user_id = 0):
     u_id = message.from_user.id if not user_id else user_id
