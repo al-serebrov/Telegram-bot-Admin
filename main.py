@@ -855,4 +855,3 @@ if __name__ == '__main__':
             bot.polling(none_stop=True)
         except Exception as e:
             bot.send_message(config.debug_chat, e)
-h
