@@ -77,8 +77,8 @@ def pin(message):
         except AttributeError:
             sent_m = bot.send_message(
                 message.chat.id,
-                'Неверный синтаксис команды:\
- Нужно ответить командой /pin на нужное сообщение.')
+                'Неверный синтаксис команды: \
+Нужно ответить командой /pin на нужное сообщение.')
             Timer(10.0, bot.delete_message, args=[
                   sent_m.chat.id, sent_m.message_id]).start()
 
@@ -94,8 +94,8 @@ def sd(message):
         except telebot.apihelper.ApiException:
             sent_m = bot.send_message(
                 message.chat.id,
-                'Неверный синтаксис команды:\
- Нужно отправить команду /sd text - где text Ваше сообщение.')
+                'Неверный синтаксис команды: \
+Нужно отправить команду /sd text - где text Ваше сообщение.')
             Timer(10.0, bot.delete_message, args=[
                   sent_m.chat.id, sent_m.message_id]).start()
 
@@ -121,9 +121,9 @@ def sd_ch(message):
         except IndexError:
             sent_m = bot.send_message(
                 message.chat.id,
-                'Неверный синтаксис команды:\
- Нужно ответить командой /sd_ch на нужное сообщение\
- или через пробел написать текст для отправки.')
+                'Неверный синтаксис команды: \
+Нужно ответить командой /sd_ch на нужное сообщение \
+или через пробел написать текст для отправки.')
             Timer(10.0, bot.delete_message, args=[
                   sent_m.chat.id, sent_m.message_id]).start()
 
@@ -745,8 +745,14 @@ def check_mat(message):
         try:
             if res[1] == 'False':
                 return False
-            mes = frozenset(re.findall(r'\w+', message.text.lower())
-                            ) & frozenset(res[0].split(','))
+            mes = \
+                frozenset(
+                    re.findall(
+                        r'\w+', message.text.lower())
+                ) & \
+                frozenset(
+                    res[0].split(',')
+                )
         except (AttributeError, TypeError):
             pass
         else:
@@ -775,3 +781,4 @@ if __name__ == '__main__':
             bot.polling(none_stop=True)
         except Exception as e:
             bot.send_message(config.debug_chat, e)
+h
